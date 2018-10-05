@@ -96,7 +96,10 @@ function startFork() {
         
         w.send({
             type: 'start',
-            combination: combination.value
+            combination: combination.value,
+            start: start,
+            end: end,
+            amount: 1
         });
     } else {
         isDone = true;

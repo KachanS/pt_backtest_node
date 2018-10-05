@@ -327,7 +327,8 @@ let calculateStatistics = state => {
                 });
             }
             
-            let { adv_in, adv_out } = [st.adv_in, st.adv_out],
+            let adv_in = st.adv_in, 
+                adv_out = st.adv_out,
                 deals = {}, deal = {},
                 lastDeal = {}, accs = {},
                 lens = {};
