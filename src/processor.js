@@ -34,7 +34,7 @@ const SQLs = {
         return 'INSERT INTO `main_backtest` VALUES('+
                 'NULL, 1, 0, NOW(), NOW(), "|main.backtest|", 0, 3, '+
                 '\''+JSON.stringify({ statistics: stats })+'\', '+
-                '"'+(type == TYPE_LONG?'Long':'Short')+': In '+p_in.join('_')+' -> Out '+p_in.join('_')+'", '+
+                '"'+(type == TYPE_LONG?'Long':'Short')+': In '+p_in.join('_')+' -> Out '+p_out.join('_')+'", '+
                 p_in.join(', ')+', '+p_out.join(', ')+', '+
                 state.start+', '+state.end+', '+
                 stats[1].profit+', '+stats[2].profit+', '+stats[3].profit+', '+stats[4].profit+', '+
