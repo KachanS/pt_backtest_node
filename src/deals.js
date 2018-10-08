@@ -21,12 +21,12 @@ let deltaMap = {
 };
 
 const SKIPPER_COMBINATION = 3;
-const SKIPPER_BACKTEST = 16000;
+const SKIPPER_BACKTEST = 1;//16000;
 
 const FAST_LIST = _.range(2, 31);
 const SLOW_LIST = _.range(10, 41);
 const SIGNAL_LIST = _.range(2, 21);
-const PERIOD_LIST = [30, 60, 120, 240, 1440]
+const PERIOD_LIST = [60, 240];//[30, 60, 120, 240, 1440];
 
 function* combinations() {
     for(let pidx in PERIOD_LIST) {
@@ -70,9 +70,11 @@ function* gen() {
             while(!cout.done) {
                 if(isCombinationValid(cout.value)) {
                     if(cin.value[3] >= cout.value[3]) {
-                        skipper++;
-                        if((skipper % SKIPPER_BACKTEST) == 0) {
-                            yield [cin.value, cout.value];
+                        if(cin.value[0] == cout.value[0] && cin.value[1] == cout.value[1] && cin.value[2] == cout.value[2]) {
+                            skipper++;
+                            if((skipper % SKIPPER_BACKTEST) == 0) {
+                                yield [cin.value, cout.value];
+                            }
                         }
                     }
                 }
@@ -89,72 +91,65 @@ let g = gen();
 let isDone = false;
 let calculations = 0;
 
-function startFork() {
-    let combination = g.next();
-    if(!combination.done) {
-        let w = cluster.fork();
-        
-        w.send({
-            type: 'start',
-            combination: combination.value,
-            start: start,
-            end: end,
-            amount: 1
-        });
-    } else {
-        isDone = true;
-    }
-}
-
-function checkIsDone() {
-    if(isDone && !_.size(cluster.workers)) {
-        console.log(`Master is done with ${2*calculations} calculations`);
-        console.timeEnd('master');
-        process.exit();
-    }
-}
-
-cluster.on('exit', (worker, code, signal) => {
-    console.log(`W#${worker.process.pid} done`);
-    calculations++;
-    startFork();
-    checkIsDone();
-});
-
-cluster.on('message', (worker, message) => {
-    switch(message.type) {
-        case 'done':
-            calculations += message.data;
-            break;
-    }
-});
-
 let end = new Date().getTime();
 end = parseInt(end/1000); // To seconds
 end -= (end % (60*60*24)); // Restrict to current date 00:00:00
 let start = end - 180 * (60*60*24);
 
-let startInt = null;
-startInt = setInterval(() => {
-    if(_.size(cluster.workers) <= numCPUs) {
-        let combination = g.next();
-        if(!combination.done) {
-            let w = cluster.fork();
+let skipedCombinations = [];
+let calculatedCount = 0;
 
-            w.send({
-                type: 'start',
-                combination: combination.value,
-                start: start,
-                end: end,
-                amount: 1
-            });
-        } else {
-            clearInterval(startInt);
-        }
-    } else {
-        clearInterval(startInt);
+cluster.on('message', (worker, message) => {
+    switch(message.type) {
+        case 'idle':
+            let combination = g.next();
+            if(!combination.done) {
+                try {
+                    worker.send({
+                        type: 'start',
+                        combination: combination.value,
+                        start: start,
+                        end: end,
+                        amount: 1
+                    });
+                } catch(e) {
+                    console.log('SEND Error', e);
+                    skipedCombinations.push(combination.value);
+                }
+            } else {
+                worker.send({ type: 'die' });
+            }
+            break;
+        case 'done':
+            calculatedCount++;
+            break;
     }
-}, 200);
+});
 
-console.time('master');
-console.log(`Cluster started successfully`);
+cluster.on('exit', (worker, code, signal) => {
+    if(code) {
+        console.log('Worker %d died (%s). Restarting...', worker.process.pid, signal || code);
+        //setTimeout(() => {
+            cluster.fork();
+        //}, 300);
+    } else {
+        console.log('Worker %d died (%s)', worker.process.pid, signal || code);
+        if(!_.size(cluster.workers)) {
+            console.log('Done');
+            console.log('Skipped: ');
+            console.log(skipedCombinations);
+            console.log(_.size(skipedCombinations));
+            console.log('Calculated: ', calculatedCount);
+        }
+    }
+});
+
+cluster.on('error', (worker, err) => {
+    console.log(`Error [#${worker.process.pid}]`, err);
+});
+
+_.each(_.range(0, numCPUs), i => {
+    setTimeout(() => {
+        cluster.fork();
+    }, i*200);
+});
