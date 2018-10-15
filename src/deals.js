@@ -12,21 +12,13 @@ if(!cluster.isMaster) {
     process.exit(1001);
 }
 
-let deltaMap = {
-    60: 0,
-    240: 1,
-    120: 2,
-    1440: 0,
-    30: 1
-};
-
 const SKIPPER_COMBINATION = 3;
 const SKIPPER_BACKTEST = 1;//16000;
 
 const FAST_LIST = _.range(2, 31);
 const SLOW_LIST = _.range(10, 41);
 const SIGNAL_LIST = _.range(2, 21);
-const PERIOD_LIST = [60, 240];//[30, 60, 120, 240, 1440];
+const PERIOD_LIST = [30, 60, 120, 240, 1440];
 
 function* combinations() {
     for(let pidx in PERIOD_LIST) {
@@ -50,7 +42,7 @@ function isCombinationValid(combination) {
         return false;
     }
     
-    if((fast + slow + signal + deltaMap[period]) % SKIPPER_COMBINATION > 0) {
+    if((fast + slow + signal) % SKIPPER_COMBINATION > 0) {
         return false;
     }
     
@@ -128,18 +120,17 @@ cluster.on('message', (worker, message) => {
 
 cluster.on('exit', (worker, code, signal) => {
     if(code) {
-        console.log('Worker %d died (%s). Restarting...', worker.process.pid, signal || code);
-        //setTimeout(() => {
-            cluster.fork();
-        //}, 300);
+        console.log('Restarting fork. Signal: %s, Code: %s', signal, code);
+        cluster.fork();
     } else {
-        console.log('Worker %d died (%s)', worker.process.pid, signal || code);
+        //console.log('Worker %d died (%s)', worker.process.pid, signal || code);
         if(!_.size(cluster.workers)) {
             console.log('Done');
             console.log('Skipped: ');
             console.log(skipedCombinations);
             console.log(_.size(skipedCombinations));
             console.log('Calculated: ', calculatedCount);
+            console.timeEnd('Total time');
         }
     }
 });
@@ -148,6 +139,7 @@ cluster.on('error', (worker, err) => {
     console.log(`Error [#${worker.process.pid}]`, err);
 });
 
+console.time('Total time');
 _.each(_.range(0, numCPUs), i => {
     setTimeout(() => {
         cluster.fork();

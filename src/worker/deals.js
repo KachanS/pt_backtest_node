@@ -40,7 +40,7 @@ function finishJob(jobId) {
 
 function doTheJob(jid, pin, pout, start, end, amount) {
     clearTimeout(queryTimer);
-    console.time('#'+jid);
+    
     processor
         .calculate(pin, pout, start, end, amount)
         .catch(e => {
@@ -50,8 +50,6 @@ function doTheJob(jid, pin, pout, start, end, amount) {
             return null;
         })
         .then(() => {
-            console.timeEnd('#'+jid);
-            
             finishJob(jid);
         });
 }
@@ -64,7 +62,6 @@ process.on('message', message => {
             doTheJob(jid, message.combination[0], message.combination[1], message.start, message.end, message.amount);
             break;
         case 'die':
-            console.log('Worker shut down after "die" command');
             process.exit(0);
         default:
             console.log('Unknown message');
