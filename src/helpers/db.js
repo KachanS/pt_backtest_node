@@ -175,7 +175,7 @@ const saveBt = (key, type) => state => {
 };
 
 const saveLong = saveBt('slong', TYPE_LONG);
-const saveShort = saveBt('slong', TYPE_SHORT);
+const saveShort = saveBt('sshort', TYPE_SHORT);
 
 module.exports = {
     notCalculated: state => {
